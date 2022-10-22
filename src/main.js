@@ -6,6 +6,7 @@ import t1 from "../src/asset/img/eco.png";
 import t2 from "../src/asset/img/loopy.png";
 import mask from "../src/asset/img/fox/Texture.png";
 import { gsap } from "gsap";
+import dat from "dat.gui";
 // init
 
 //https://www.youtube.com/watch?v=8K5wJeVgjrM
@@ -44,7 +45,17 @@ export default class Sketch {
     this.time = 0;
     this.move = 0;
     this.mouseEffects();
+    this.setting();
+    this.setupResize();
     this.render();
+  }
+  setting() {
+    let that = this;
+    this.setting = {
+      progress: -2,
+    };
+    this.gui = new dat.GUI();
+    this.gui.add(this.setting, "progress", 0, 1, 0.01);
   }
   mouseEffects() {
     this.test = new THREE.Mesh(
@@ -54,19 +65,25 @@ export default class Sketch {
     window.addEventListener("mousedown", (e) => {
       gsap.to(this.material.uniforms.mousePressed, {
         duration: 1,
-        // ease: "elastic.out(1,0.3)",
+        ease: "elastic.out(1,0.3)",
         value: 1,
       });
     });
     window.addEventListener("mouseup", (e) => {
       gsap.to(this.material.uniforms.mousePressed, {
         duration: 1,
-        // ease: "elastic.out(1,0.3)",
+        ease: "elastic.out(1,0.3)",
         value: 0,
       });
     });
     window.addEventListener("mousewheel", (e) => {
-      this.move += e.wheelDeltaY / 1000;
+      if (Math.floor(this.setting.progress) <= 0.9 && e.wheelDeltaY < 0) {
+        this.setting.progress += 0.05;
+
+        console.log(Math.floor(this.setting.progress));
+      } else if (Math.floor(this.setting.progress) > -2 && e.wheelDeltaY > 0) {
+        this.setting.progress -= 0.05;
+      }
     });
     window.addEventListener(
       "mousemove",
@@ -79,6 +96,9 @@ export default class Sketch {
 
         this.points.x = intersects[0].point.x;
         this.points.y = intersects[0].point.y;
+        if (this.points === undefined) {
+          return;
+        }
       },
       false
     );
@@ -115,9 +135,10 @@ export default class Sketch {
       uniforms: {
         progress: { type: "f", value: 0 },
         t1: { type: "t", value: this.textures[0] },
-        t1: { type: "t", value: this.textures[1] },
+        t2: { type: "t", value: this.textures[1] },
         mask: { type: "t", value: this.mask },
         mousePressed: { type: "f", value: 0 },
+        transition: { type: "f", value: null },
         mouse: { type: "v2", value: null },
         move: { type: "f", value: 0 },
         time: { type: "f", value: 0 },
@@ -150,9 +171,24 @@ export default class Sketch {
     this.mesh = new THREE.Points(this.geometry, this.material);
     this.scene.add(this.mesh);
   }
+  setupResize() {
+    window.addEventListener("resize", this.resize.bind(this));
+  }
+  resize() {
+    this.material.uniforms.time.value = this.time;
+    this.material.uniforms.move.value = this.move;
+    this.material.uniforms.mouse.value = this.points;
+    this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.camera.aspect = window.innerWidth / window.innerHeight;
+    this.camera.updateProjectionMatrix();
+  }
   render() {
     this.time++;
-
+    let next = Math.floor(this.move + 40) % 2;
+    let prev = (Math.floor(this.move) + 1 + 40) % 2;
+    this.material.uniforms.t1.value = this.textures[prev];
+    this.material.uniforms.t2.value = this.textures[next];
+    this.material.uniforms.transition.value = this.setting.progress;
     this.material.uniforms.time.value = this.time;
     this.material.uniforms.move.value = this.move;
     this.material.uniforms.mouse.value = this.points;
